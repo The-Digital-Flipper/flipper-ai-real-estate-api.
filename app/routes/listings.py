@@ -1,5 +1,6 @@
 from typing import Optional
 from uuid import UUID
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -21,6 +22,8 @@ async def get_listings(
     max_price: Optional[float] = Query(None),
     property_type: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    listed_within_days: Optional[int] = Query(None, ge=1, description="Return listings first listed within the last N days"),
+    max_days_on_market: Optional[int] = Query(None, ge=0, description="Return listings with days_on_market at or below this value"),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -41,6 +44,11 @@ async def get_listings(
         query = query.where(ActiveListing.property_type == property_type.upper())
     if status:
         query = query.where(ActiveListing.status == status.upper())
+    if listed_within_days is not None:
+        cutoff = datetime.utcnow() - timedelta(days=listed_within_days)
+        query = query.where(ActiveListing.listed_at >= cutoff)
+    if max_days_on_market is not None:
+        query = query.where(ActiveListing.days_on_market <= max_days_on_market)
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
     total = total_result.scalar_one()
