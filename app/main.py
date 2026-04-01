@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -13,10 +14,19 @@ from app.routes import auth, listings, properties, matches, alerts, saved_search
 
 logging.basicConfig(level=logging.INFO)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="AI-powered real estate deal-finding platform for distressed property identification",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter
@@ -41,12 +51,6 @@ app.include_router(matches.router)
 app.include_router(alerts.router)
 app.include_router(saved_searches.router)
 app.include_router(admin.router)
-
-
-@app.on_event("startup")
-async def startup_event():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
 
 @app.get("/", tags=["root"])

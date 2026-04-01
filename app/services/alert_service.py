@@ -23,7 +23,22 @@ async def create_match_alert(match: PropertyMatch, db: AsyncSession) -> Alert:
 
 
 async def create_price_drop_alert(listing: ActiveListing, old_price: float, db: AsyncSession) -> Alert:
+    # Check if an identical PRICE_DROP alert already exists for this listing at the same new price
     new_price = float(listing.list_price)
+    existing_result = await db.execute(
+        select(Alert).where(
+            Alert.alert_type == "PRICE_DROP",
+            Alert.is_read.is_(False),
+        ).order_by(Alert.created_at.desc()).limit(500)
+    )
+    existing_alerts = existing_result.scalars().all()
+    for existing in existing_alerts:
+        if (
+            existing.details
+            and existing.details.get("listing_id") == str(listing.id)
+            and existing.details.get("new_price") == new_price
+        ):
+            return None
     drop_pct = ((old_price - new_price) / old_price * 100) if old_price > 0 else 0
     alert = Alert(
         alert_type="PRICE_DROP",

@@ -2,7 +2,7 @@ from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.database import get_db
 from app.models.listing import ActiveListing
 from app.models.user import User
@@ -41,8 +41,9 @@ async def get_listings(
         query = query.where(ActiveListing.property_type == property_type.upper())
     if status:
         query = query.where(ActiveListing.status == status.upper())
-    count_result = await db.execute(query)
-    total = len(count_result.scalars().all())
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
     listings = result.scalars().all()

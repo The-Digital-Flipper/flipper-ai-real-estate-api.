@@ -2,7 +2,7 @@ from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, func, or_
 from app.database import get_db
 from app.models.property import DistressedProperty
 from app.models.user import User
@@ -49,8 +49,9 @@ async def get_properties(
                 DistressedProperty.city.ilike(f"%{keyword}%"),
             )
         )
-    count_result = await db.execute(query)
-    total = len(count_result.scalars().all())
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
     props = result.scalars().all()
