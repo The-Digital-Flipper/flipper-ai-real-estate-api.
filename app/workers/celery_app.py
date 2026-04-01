@@ -16,5 +16,9 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.run_matching_task",
         "schedule": 1800.0,
     },
+    "run-scraper-every-4-hours": {
+        "task": "app.workers.tasks.run_scraper_task",
+        "schedule": 14400.0,
+    },
 }
 celery_app.conf.timezone = "UTC"
