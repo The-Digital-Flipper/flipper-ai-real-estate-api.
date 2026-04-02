@@ -24,5 +24,13 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.run_census_enrichment_task",
         "schedule": 86400.0,   # once per day — Census data changes slowly
     },
+    "run-fred-weekly": {
+        "task": "app.workers.tasks.run_fred_task",
+        "schedule": 604800.0,  # once per week — FRED publishes weekly/monthly
+    },
+    "run-walk-score-daily": {
+        "task": "app.workers.tasks.run_walk_score_task",
+        "schedule": 86400.0,   # once per day — score newly ingested properties
+    },
 }
 celery_app.conf.timezone = "UTC"

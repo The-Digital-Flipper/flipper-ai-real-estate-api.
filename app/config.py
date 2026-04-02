@@ -46,6 +46,18 @@ class Settings(BaseSettings):
     # ACS 5-year dataset year to query (update when Census releases a new year)
     CENSUS_ACS_YEAR: int = 2022
 
+    # --- FRED API (Federal Reserve Economic Data, https://fred.stlouisfed.org/docs/api/fred/) ---
+    # Completely free — register for a key at https://fred.stlouisfed.org/docs/api/api_key.html
+    # Provides 800,000+ US economic time-series including mortgage rates and home price indexes.
+    FRED_API_KEY: Optional[str] = None
+
+    # --- Walk Score API (https://www.walkscore.com/professional/api.php) ---
+    # Free tier: 5,000 API calls/day.  Request a key at https://www.walkscore.com/professional/api.php
+    # Returns Walk Score, Transit Score, and Bike Score for any US address.
+    WALK_SCORE_API_KEY: Optional[str] = None
+    # Properties per Celery-run to enrich with Walk Score (caps daily API usage).
+    WALK_SCORE_MAX_PER_RUN: int = 100
+
     class Config:
         env_file = ".env"
         extra = "ignore"

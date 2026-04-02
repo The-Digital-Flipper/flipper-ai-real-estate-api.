@@ -10,7 +10,7 @@ from app.database import engine, Base
 from app.middleware.rate_limiter import limiter
 from app.middleware.error_handler import http_exception_handler, validation_exception_handler, general_exception_handler
 from app.middleware.logging_middleware import LoggingMiddleware
-from app.routes import auth, listings, properties, matches, alerts, saved_searches, admin
+from app.routes import auth, listings, properties, matches, alerts, saved_searches, admin, market
 
 logging.basicConfig(level=logging.INFO)
 
@@ -51,6 +51,7 @@ app.include_router(matches.router)
 app.include_router(alerts.router)
 app.include_router(saved_searches.router)
 app.include_router(admin.router)
+app.include_router(market.router)
 
 
 @app.get("/", tags=["root"])

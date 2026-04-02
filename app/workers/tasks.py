@@ -58,6 +58,63 @@ def run_scraper_task():
     return asyncio.run(_run())
 
 
+@celery_app.task(name="app.workers.tasks.run_fred_task")
+def run_fred_task():
+    """
+    Fetch the latest observations for tracked FRED economic series and upsert
+    into the market_indicators table.
+
+    Series fetched (all free, Federal Reserve Bank of St. Louis):
+        - MORTGAGE30US  — 30-year fixed mortgage average
+        - MORTGAGE15US  — 15-year fixed mortgage average
+        - CSUSHPINSA    — Case-Shiller US national home price index
+        - HOUST         — Housing starts (000s of units, SAAR)
+        - MSPUS         — Median sales price of houses sold
+
+    Schedule: weekly (FRED updates happen weekly/monthly).
+    Free key:  https://fred.stlouisfed.org/docs/api/api_key.html
+    """
+    from app.config import settings
+    from app.database import AsyncSessionLocal
+    from app.services.fred_service import run_fred_update
+
+    async def _run():
+        async with AsyncSessionLocal() as db:
+            count = await run_fred_update(db, api_key=settings.FRED_API_KEY)
+            logger.info("[FRED] Task complete — %d new market indicator rows", count)
+            return count
+
+    return asyncio.run(_run())
+
+
+@celery_app.task(name="app.workers.tasks.run_walk_score_task")
+def run_walk_score_task():
+    """
+    Enrich unscored active listings and distressed properties with Walk Score,
+    Transit Score, and Bike Score from the Walk Score API.
+
+    Uses OpenStreetMap Nominatim (free, no key) to geocode addresses first,
+    then calls Walk Score (free tier: 5,000 calls/day) for neighbourhood scores.
+
+    Free Walk Score key: https://www.walkscore.com/professional/api.php
+    """
+    from app.config import settings
+    from app.database import AsyncSessionLocal
+    from app.services.walk_score_enricher import run_walk_score_enrichment
+
+    async def _run():
+        async with AsyncSessionLocal() as db:
+            count = await run_walk_score_enrichment(
+                db,
+                api_key=settings.WALK_SCORE_API_KEY or "",
+                max_per_run=settings.WALK_SCORE_MAX_PER_RUN,
+            )
+            logger.info("[WALKSCORE] Task complete — %d new score rows", count)
+            return count
+
+    return asyncio.run(_run())
+
+
 @celery_app.task(name="app.workers.tasks.run_census_enrichment_task")
 def run_census_enrichment_task():
     """
