@@ -12,6 +12,9 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
+    # Notification preferences — email where deal alerts are delivered
+    notification_email = Column(String, nullable=True)
+    email_alerts_enabled = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     alerts = relationship("Alert", back_populates="user")
     saved_searches = relationship("SavedSearch", back_populates="user")

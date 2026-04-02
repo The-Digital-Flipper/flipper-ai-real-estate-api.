@@ -1,13 +1,13 @@
 from datetime import timedelta
+import bleach
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserRead, Token
-from app.services.auth_service import hash_password, verify_password, create_access_token
+from app.schemas.user import UserCreate, UserRead, UserUpdate, Token
+from app.services.auth_service import hash_password, verify_password, create_access_token, get_current_user
 from app.config import settings
-import bleach
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -37,3 +37,25 @@ async def login(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return Token(access_token=access_token)
+
+
+@router.get("/me", response_model=UserRead)
+async def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@router.patch("/me", response_model=UserRead)
+async def update_me(
+    update_in: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update notification email and/or enable/disable email alerts."""
+    if update_in.notification_email is not None:
+        current_user.notification_email = update_in.notification_email.lower().strip()
+    if update_in.email_alerts_enabled is not None:
+        current_user.email_alerts_enabled = update_in.email_alerts_enabled
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+

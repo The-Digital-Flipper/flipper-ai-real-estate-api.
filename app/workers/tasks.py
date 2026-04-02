@@ -115,6 +115,132 @@ def run_walk_score_task():
     return asyncio.run(_run())
 
 
+@celery_app.task(name="app.workers.tasks.run_deal_analysis_task")
+def run_deal_analysis_task():
+    """
+    Run the investment analysis engine on all PropertyMatch rows that lack
+    deal scores or haven't had their estimated_value / profit_potential fields
+    filled yet.  Caches results back onto the match rows so the /deals/top
+    endpoint can sort and filter efficiently without re-running analysis on
+    every request.
+    """
+    from app.database import AsyncSessionLocal
+    from app.models.match import PropertyMatch
+    from sqlalchemy import select as _select
+    from app.services.deal_analyzer import analyze_match_and_store
+
+    async def _run():
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                _select(PropertyMatch)
+                .where(PropertyMatch.deal_score.is_not(None))
+                .where(PropertyMatch.estimated_value.is_(None))
+                .limit(200)
+            )
+            matches = result.scalars().all()
+            updated = 0
+            for match in matches:
+                try:
+                    await analyze_match_and_store(match, db)
+                    updated += 1
+                except Exception as exc:
+                    logger.warning("[DEAL_ANALYSIS] Failed for match %s: %s", match.id, exc)
+            logger.info("[DEAL_ANALYSIS] Updated %d match rows with analysis data", updated)
+            return updated
+
+    return asyncio.run(_run())
+
+
+@celery_app.task(name="app.workers.tasks.run_notifications_task")
+def run_notifications_task():
+    """
+    Deliver unread alerts to users who have email_alerts_enabled=True and
+    a notification_email configured.
+
+    Only sends alerts created in the last 24 hours to avoid re-sending
+    old notifications.
+    """
+    from app.config import settings
+    from app.database import AsyncSessionLocal
+    from app.models.alert import Alert
+    from app.models.user import User
+    from app.models.match import PropertyMatch
+    from sqlalchemy import select as _select
+    from datetime import datetime, timedelta
+    from app.services.notification_service import build_notification_service
+    from app.services.deal_analyzer import analyze_deal
+
+    async def _run():
+        notifier = build_notification_service()
+        if not notifier.enabled:
+            logger.info("[NOTIFY] SMTP not configured — skipping email delivery")
+            return 0
+
+        since = datetime.utcnow() - timedelta(hours=24)
+        sent = 0
+
+        async with AsyncSessionLocal() as db:
+            users_result = await db.execute(
+                _select(User).where(
+                    User.email_alerts_enabled.is_(True),
+                    User.is_active.is_(True),
+                )
+            )
+            users = users_result.scalars().all()
+
+            for user in users:
+                alerts_result = await db.execute(
+                    _select(Alert).where(
+                        Alert.user_id == user.id,
+                        Alert.is_read.is_(False),
+                        Alert.created_at >= since,
+                    ).order_by(Alert.created_at.desc()).limit(20)
+                )
+                alerts = alerts_result.scalars().all()
+
+                for alert in alerts:
+                    analysis = None
+                    if alert.match_id:
+                        match_result = await db.execute(
+                            _select(PropertyMatch).where(PropertyMatch.id == alert.match_id)
+                        )
+                        m = match_result.scalar_one_or_none()
+                        if m:
+                            try:
+                                analysis = await analyze_deal(m, db)
+                            except Exception:
+                                pass
+                    ok = await notifier.send_alert(user, alert, analysis)
+                    if ok:
+                        sent += 1
+
+        logger.info("[NOTIFY] Email task complete — %d alerts delivered", sent)
+        return sent
+
+    return asyncio.run(_run())
+
+
+@celery_app.task(name="app.workers.tasks.run_saved_search_matcher_task")
+def run_saved_search_matcher_task():
+    """
+    Match newly scored deals against all users' saved searches and create
+    personalized SAVED_SEARCH_MATCH alerts.
+
+    Runs after every scraper + matching cycle to ensure users are notified
+    of new opportunities that fit their saved criteria.
+    """
+    from app.database import AsyncSessionLocal
+    from app.services.saved_search_matcher import run_saved_search_matching
+
+    async def _run():
+        async with AsyncSessionLocal() as db:
+            count = await run_saved_search_matching(db, notify=True)
+            logger.info("[SAVED_SEARCH] Task complete — %d new alerts created", count)
+            return count
+
+    return asyncio.run(_run())
+
+
 @celery_app.task(name="app.workers.tasks.run_census_enrichment_task")
 def run_census_enrichment_task():
     """

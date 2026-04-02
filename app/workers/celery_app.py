@@ -32,5 +32,17 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.run_walk_score_task",
         "schedule": 86400.0,   # once per day — score newly ingested properties
     },
+    "run-deal-analysis-every-4-hours": {
+        "task": "app.workers.tasks.run_deal_analysis_task",
+        "schedule": 14400.0,   # after scrapers run, enrich matches with full analysis
+    },
+    "run-saved-search-matcher-every-4-hours": {
+        "task": "app.workers.tasks.run_saved_search_matcher_task",
+        "schedule": 14400.0,   # alert users of matches to their saved searches
+    },
+    "run-notifications-every-hour": {
+        "task": "app.workers.tasks.run_notifications_task",
+        "schedule": 3600.0,    # deliver unread alerts via email every hour
+    },
 }
 celery_app.conf.timezone = "UTC"

@@ -46,6 +46,19 @@ class Settings(BaseSettings):
     # ACS 5-year dataset year to query (update when Census releases a new year)
     CENSUS_ACS_YEAR: int = 2022
 
+    # --- SMTP email notification settings ---
+    # Configure these to enable email delivery of alerts to users.
+    # Works with any SMTP provider (Gmail, SendGrid, Mailgun, AWS SES, etc.)
+    # Leave SMTP_HOST empty to disable email delivery (alerts still stored in DB).
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM_EMAIL: str = "noreply@flipperai.com"
+    SMTP_FROM_NAME: str = "Flipper AI"
+    # TLS=True uses STARTTLS (port 587).  Set False + port 465 for SSL.
+    SMTP_USE_TLS: bool = True
+
     # --- FRED API (Federal Reserve Economic Data, https://fred.stlouisfed.org/docs/api/fred/) ---
     # Completely free — register for a key at https://fred.stlouisfed.org/docs/api/api_key.html
     # Provides 800,000+ US economic time-series including mortgage rates and home price indexes.

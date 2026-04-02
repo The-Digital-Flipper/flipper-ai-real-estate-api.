@@ -1,6 +1,7 @@
 import bleach
 from datetime import datetime
 from uuid import UUID
+from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator
 
 
@@ -21,11 +22,25 @@ class UserCreate(BaseModel):
         return bleach.clean(str(v))
 
 
+class UserUpdate(BaseModel):
+    notification_email: Optional[EmailStr] = None
+    email_alerts_enabled: Optional[bool] = None
+
+    @field_validator("notification_email", mode="before")
+    @classmethod
+    def sanitize_notification_email(cls, v):
+        if v is not None:
+            return bleach.clean(str(v))
+        return v
+
+
 class UserRead(BaseModel):
     id: UUID
     email: str
     is_active: bool
     is_admin: bool
+    notification_email: Optional[str] = None
+    email_alerts_enabled: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
