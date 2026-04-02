@@ -20,5 +20,9 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.run_scraper_task",
         "schedule": 14400.0,
     },
+    "run-census-enrichment-daily": {
+        "task": "app.workers.tasks.run_census_enrichment_task",
+        "schedule": 86400.0,   # once per day — Census data changes slowly
+    },
 }
 celery_app.conf.timezone = "UTC"

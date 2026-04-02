@@ -158,6 +158,7 @@ def build_scrapers(settings: Any) -> List[BaseScraper]:
     from app.scrapers.sources.craigslist import CraigslistScraper
     from app.scrapers.sources.attom import ATTOMScraper
     from app.scrapers.sources.reso import RESOScraper
+    from app.scrapers.sources.rentcast import RentCastScraper
 
     proxy: Optional[str] = getattr(settings, "SCRAPER_PROXY_URL", None)
     rps: float = float(getattr(settings, "SCRAPER_REQUESTS_PER_SECOND", 1.0))
@@ -208,5 +209,25 @@ def build_scrapers(settings: Any) -> List[BaseScraper]:
             )
         )
         logger.info("Scraper enabled: RESO Web API (%s)", reso_url)
+
+    # RentCast — enabled when API key is configured (free tier: 50 calls/month)
+    rentcast_key: Optional[str] = getattr(settings, "RENTCAST_API_KEY", None)
+    if rentcast_key:
+        rentcast_states: List[str] = list(getattr(settings, "RENTCAST_STATES", ["CA"]))
+        max_calls: int = int(getattr(settings, "RENTCAST_MAX_CALLS_PER_RUN", 5))
+        scrapers.append(
+            RentCastScraper(
+                api_key=rentcast_key,
+                states=rentcast_states,
+                max_api_calls=max_calls,
+                proxy_url=proxy,
+                requests_per_second=min(rps, 1.0),
+            )
+        )
+        logger.info(
+            "Scraper enabled: RentCast (states=%s, max_calls_per_run=%d)",
+            rentcast_states,
+            max_calls,
+        )
 
     return scrapers

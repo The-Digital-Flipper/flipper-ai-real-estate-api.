@@ -28,6 +28,24 @@ class Settings(BaseSettings):
     # Max outbound requests per second per scraper source
     SCRAPER_REQUESTS_PER_SECOND: float = 1.0
 
+    # --- RentCast API (https://developers.rentcast.io) ---
+    # Free tier: 50 API calls/month.  Sign up at https://www.rentcast.io/api
+    RENTCAST_API_KEY: Optional[str] = None
+    # Two-letter state codes to query for for-sale listings.
+    # Keep this small on the free tier (each state = 1+ API calls).
+    # e.g. ["CA", "TX", "FL"]
+    RENTCAST_STATES: List[str] = ["CA", "TX", "FL"]
+    # Hard cap on API calls per scraper run (protects free-tier quota).
+    # Each paginated request counts as one call.
+    RENTCAST_MAX_CALLS_PER_RUN: int = 5
+
+    # --- US Census Bureau ACS API (https://api.census.gov) ---
+    # Free, no approval needed.  Get a key at https://api.census.gov/data/key_signup.html
+    # The API works without a key but is rate-limited to 500 requests/day without one.
+    CENSUS_API_KEY: Optional[str] = None
+    # ACS 5-year dataset year to query (update when Census releases a new year)
+    CENSUS_ACS_YEAR: int = 2022
+
     class Config:
         env_file = ".env"
         extra = "ignore"
